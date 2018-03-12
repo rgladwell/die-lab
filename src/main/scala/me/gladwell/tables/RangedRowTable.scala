@@ -1,6 +1,6 @@
 package me.gladwell.tables
 
-case class RangedRowTable[R, C, T](data:  Map[IndexedSeq[R], Map[C, T]]) extends Table[R, C, T] {
+case class RangedRowTable[R, C, T](data: Map[IndexedSeq[R], Map[C, T]]) extends Table[R, C, T] {
 
   def get(column: C, row: R): Option[T] =
     for {
