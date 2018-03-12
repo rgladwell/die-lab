@@ -1,16 +1,13 @@
 package me.gladwell.die
 
-import scala.util.Random
-import System.currentTimeMillis
 import Math.round
 import scala.concurrent.ExecutionContext.Implicits.global
 import me.gladwell.tables.RangedRowTable
+import me.gladwell.dice._
+
+import me.gladwell.dice.Implicits.globalRandom
 
 object ChallengesProbabilities extends App {
-
-  implicit val random = new Random(currentTimeMillis)
-
-  val d20 = Die(1 to 20)
 
   type Difficulty = Int
 
