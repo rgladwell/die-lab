@@ -1,19 +1,26 @@
 package me.gladwell.die
 
 import Math.round
-import scala.concurrent.ExecutionContext.Implicits.global
-import me.gladwell.tables.RangedRowTable
 import me.gladwell.dice._
+import me.gladwell.tables._
+import me.gladwell.tables.csv.Csv
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import me.gladwell.dice.Implicits.globalRandom
 
 object ChallengesProbabilities extends App {
 
-  type Difficulty = Int
+  case class Difficulty(name: String, dc: Int) {
+    override def toString = name
+  }
 
-  val easy: Difficulty = 10
-  val medium: Difficulty = 15
-  val hard: Difficulty = 20
+  implicit object difficultyOrdering extends Ordering[Difficulty] {
+    def compare(a: Difficulty, b: Difficulty) = a.dc compare b.dc
+  }
+
+  val easy: Difficulty = Difficulty("Easy", 10)
+  val medium: Difficulty = Difficulty("Medium", 15)
+  val hard: Difficulty = Difficulty("Hard", 20)
 
   val dcs: Seq[Difficulty] = Seq(easy, medium, hard)
 
@@ -23,6 +30,10 @@ object ChallengesProbabilities extends App {
 
     override def toString = level.toString
 
+  }
+
+  implicit object levelOrdering extends Ordering[Level] {
+    def compare(a: Level, b: Level) = a.level compare b.level
   }
 
   val levels = Seq(
@@ -48,10 +59,10 @@ object ChallengesProbabilities extends App {
     Level(20, 6, 5)
   )
 
-case class Challenge(dc: Difficulty, level: Level) extends Function0[Result] {
+case class Challenge(difficulty: Difficulty, level: Level) extends Function0[Result] {
 
   private val successTable =
-    RangedRowTable[Int, Int, Int](
+    RangedRowTable[Int, Difficulty, Int](
       Map(
         (1 to 4) -> Map(easy -> 3, medium -> 3, hard -> 2),
         (5 to 10) -> Map(easy -> 4, medium -> 3, hard -> 2),
@@ -62,27 +73,29 @@ case class Challenge(dc: Difficulty, level: Level) extends Function0[Result] {
 
   val successesRequired =
     successTable
-      .get(dc, level.level)
-      .getOrElse(sys.error(s"could not find successes for level=$level and dc=$dc"))
+      .get(difficulty, level.level)
+      .getOrElse(sys.error(s"could not find successes for level=$level and dc=$difficulty"))
 
   private def recursiveChallenge(rolls: Seq[Long] = Seq()): Result =
-    if (rolls.count(_ >= dc) >= successesRequired) Success(rolls)
-    else if (rolls.count(_ < dc) >= 3) Failure(rolls)
+    if (rolls.count(_ >= difficulty.dc) >= successesRequired) Success(rolls)
+    else if (rolls.count(_ < difficulty.dc) >= 3) Failure(rolls)
     else recursiveChallenge(rolls :+ (d20() + level.averageBonus))
 
   override def apply(): Result = recursiveChallenge()
 
-  override def toString = s"Challenge(dc = $dc, level = ${level.level})"
+  override def toString = s"Challenge(dc = $difficulty, level = ${level.level})"
 
 }
 
   val probabilities =
-    for {
-      level <- levels
-      dc <- dcs
-    } yield ((level, dc) -> Lab().run{ Challenge(dc, level) })
+    TupleTable({
+      for {
+        level <- levels
+        dc <- dcs
+      } yield ((level, dc) -> Lab().run{ Challenge(dc, level) })
+    }.toMap[(Level, Difficulty), Probability])
 
-  val table = CsvTable(levels, "Level", dcs, probabilities.toMap[(Level, Difficulty), Probability])
+  val table = Csv("Level", probabilities)
 
   println(table)
 
